@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: recruitiq-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-recruitiq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-recruitiq_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-recruitiq}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recruitiq -d recruitiq"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: recruitiq-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://recruitiq:recruitiq_secret_2026@db:5432/recruitiq
+      - SECRET_KEY=${SECRET_KEY:-recruitiq-secret-key-super-secure-production-ready-2026-xyz}
+      - UPLOAD_DIR=/app/uploads/resumes
+      - AI_PROVIDER=local
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads/resumes
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: recruitiq-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
+  uploads_data:

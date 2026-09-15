@@ -1,0 +1,13 @@
+from app.services.embeddings import vectorizer, LocalSemanticVectorizer
+from app.services.resume_parser import resume_parser, ResumeParserService
+from app.services.job_analyzer import job_analyzer, JobAnalyzerService
+from app.services.matching import matching_service, SemanticMatchingService
+from app.services.skill_gap import skill_gap_service, SkillGapService
+from app.services.question_bank import VALIDATED_QUESTION_BANK, validate_question
+from app.services.adaptive_engine import adaptive_engine, AdaptiveAssessmentEngine
+from app.services.consistency_audit import consistency_service, ConsistencyAuditService
+from app.services.explainability import explainability_service, ExplainabilityService
+from app.services.fairness_audit import fairness_service, FairnessAuditService
+from app.services.counterfactual import counterfactual_service, CounterfactualAuditService
+from app.services.interview import interview_service, AIInterviewService
+from app.services.dev_plan_generator import dev_plan_service, DevelopmentPlanService

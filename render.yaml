@@ -1,0 +1,48 @@
+﻿services:
+  # 1. FastAPI Backend API
+  - type: web
+    name: recruitiq-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: recruitiq-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AI_PROVIDER
+        value: local
+      - key: CORS_ORIGINS
+        value: "*"
+    autoDeploy: true
+
+  # 2. React + Vite Frontend Web App
+  - type: web
+    name: recruitiq-frontend
+    runtime: static
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: recruitiq-backend
+          property: host
+    autoDeploy: true
+
+databases:
+  # 3. PostgreSQL Database
+  - name: recruitiq-db
+    databaseName: recruitiq
+    user: recruitiq
+    plan: free
