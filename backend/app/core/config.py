@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     # Database: Supports SQLite by default for zero-config local run, or PostgreSQL
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./recruitiq.db")
     
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def sanitize_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql://", 1)
+        return v
+    
     # Uploads
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads/resumes")
     MAX_FILE_SIZE_MB: int = 10
