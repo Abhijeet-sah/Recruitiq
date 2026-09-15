@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Union, Any
 from pydantic_settings import BaseSettings
 from pydantic import AnyHttpUrl, field_validator
 
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
     
     # CORS
-    CORS_ORIGINS: Union[List[str], str] = [
+    CORS_ORIGINS: Any = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
