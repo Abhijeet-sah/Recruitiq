@@ -19,6 +19,8 @@ services:
         generateValue: true
       - key: AI_PROVIDER
         value: local
+      - key: PYTHONUNBUFFERED
+        value: "1"
       - key: CORS_ORIGINS
         value: "*"
     autoDeploy: true
