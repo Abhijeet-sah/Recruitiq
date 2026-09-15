@@ -21,8 +21,6 @@ services:
         value: local
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: CORS_ORIGINS
-        value: "*"
     autoDeploy: true
 
   # 2. React + Vite Frontend Web App
