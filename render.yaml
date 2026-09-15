@@ -1,4 +1,4 @@
-﻿services:
+services:
   # 1. FastAPI Backend API
   - type: web
     name: recruitiq-backend
@@ -25,7 +25,6 @@
     name: recruitiq-frontend
     runtime: static
     rootDir: frontend
-    plan: free
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
