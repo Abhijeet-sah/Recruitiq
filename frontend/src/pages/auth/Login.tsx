@@ -21,9 +21,10 @@ export const Login: React.FC = () => {
     try {
       const loggedUser = await login(email, password);
       // Route appropriately by user role
-      if (loggedUser.role === 'CANDIDATE') {
+      const userRole = loggedUser?.role || 'CANDIDATE';
+      if (userRole === 'CANDIDATE') {
         navigate('/candidate/dashboard');
-      } else if (loggedUser.role === 'ADMIN') {
+      } else if (userRole === 'ADMIN') {
         navigate('/admin/dashboard');
       } else {
         navigate('/recruiter/dashboard');

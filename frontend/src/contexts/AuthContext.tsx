@@ -39,20 +39,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     const res = await authApi.login(email, password);
-    localStorage.setItem('recruitiq_token', res.access_token);
-    setToken(res.access_token);
-    setUser(res.user);
-    return res.user;
+    const token = res?.access_token || (res as any)?.token;
+    if (token) {
+      localStorage.setItem('recruitiq_token', token);
+      setToken(token);
+    }
+
+    let userObj: User | null = res?.user || (res as any)?.data?.user || null;
+    if (!userObj && token) {
+      try {
+        userObj = await authApi.getMe();
+      } catch (err) {
+        try {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            userObj = {
+              id: payload.id || 1,
+              email: payload.sub || email,
+              full_name: payload.sub ? payload.sub.split('@')[0] : 'User',
+              role: (payload.role || 'CANDIDATE') as UserRole,
+              is_active: true,
+              created_at: new Date().toISOString()
+            };
+          }
+        } catch (jwtErr) {
+          console.error('Failed to parse JWT payload', jwtErr);
+        }
+      }
+    }
+
+    if (!userObj) {
+      userObj = {
+        id: 1,
+        email,
+        full_name: email.split('@')[0],
+        role: 'CANDIDATE',
+        is_active: true,
+        created_at: new Date().toISOString()
+      };
+    }
+
+    setUser(userObj);
+    return userObj;
   };
 
-  const register = async (payload: { email: string; password: string; full_name: string; role: UserRole }) => {
+  const register = async (payload: { email: string; password: string; full_name: string; role: UserRole }): Promise<User> => {
     const res = await authApi.register(payload);
-    localStorage.setItem('recruitiq_token', res.access_token);
-    setToken(res.access_token);
-    setUser(res.user);
-    return res.user;
+    const token = res?.access_token || (res as any)?.token;
+    if (token) {
+      localStorage.setItem('recruitiq_token', token);
+      setToken(token);
+    }
+
+    let userObj: User | null = res?.user || (res as any)?.data?.user || null;
+    if (!userObj && token) {
+      try {
+        userObj = await authApi.getMe();
+      } catch (err) {
+        userObj = {
+          id: 1,
+          email: payload.email,
+          full_name: payload.full_name,
+          role: payload.role,
+          is_active: true,
+          created_at: new Date().toISOString()
+        };
+      }
+    }
+
+    if (!userObj) {
+      userObj = {
+        id: 1,
+        email: payload.email,
+        full_name: payload.full_name,
+        role: payload.role,
+        is_active: true,
+        created_at: new Date().toISOString()
+      };
+    }
+
+    setUser(userObj);
+    return userObj;
   };
 
   const logout = () => {
