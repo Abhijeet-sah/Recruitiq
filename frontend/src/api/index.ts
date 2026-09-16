@@ -76,7 +76,7 @@ export const resumesApi = {
       formData.append('candidate_id', candidate_id.toString());
     }
     const res = await api.post('/resumes/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': undefined },
     });
     return res.data;
   },
