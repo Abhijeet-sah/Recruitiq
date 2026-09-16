@@ -23,16 +23,13 @@ export const resolveBackendUrl = (): string => {
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    if (host.includes('onrender.com')) {
-      const backendHost = host.replace('recruitiq-frontend', 'recruitiq-backend');
-      return `https://${backendHost}`;
-    }
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:8000';
     }
   }
 
-  return '';
+  // Production default Render backend
+  return 'https://recruitiq-backend-8bt5.onrender.com';
 };
 
 export const getApiBase = (): string => {

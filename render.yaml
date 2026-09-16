@@ -36,7 +36,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://recruitiq-backend.onrender.com
+        value: https://recruitiq-backend-8bt5.onrender.com
     autoDeploy: true
 
 databases:

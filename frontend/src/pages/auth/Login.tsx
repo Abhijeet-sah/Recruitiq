@@ -60,20 +60,9 @@ export const Login: React.FC = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-xs border border-slate-200 sm:rounded-2xl">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2.5 text-rose-800 text-sm">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-              {(error.includes('404') || error.includes('Cannot reach') || error.includes('Cannot connect') || error.includes('Network Error')) && (
-                <button
-                  type="button"
-                  onClick={() => setConfigOpen(true)}
-                  className="self-start mt-1 px-3 py-1 text-xs font-semibold text-rose-700 bg-rose-100 hover:bg-rose-200 rounded-lg transition-colors inline-flex items-center gap-1.5"
-                >
-                  <Settings className="w-3.5 h-3.5" /> Configure Render Backend URL
-                </button>
-              )}
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800 text-sm">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
