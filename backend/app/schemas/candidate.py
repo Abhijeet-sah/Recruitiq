@@ -60,8 +60,8 @@ class CandidateProfileBase(BaseModel):
     linkedin_url: Optional[str] = None
     github_url: Optional[str] = None
     portfolio_url: Optional[str] = None
-    years_of_experience: float = 0.0
-    education_level: str = "Bachelor's"
+    years_of_experience: Optional[float] = 0.0
+    education_level: Optional[str] = "Bachelor's"
     demographic_gender: Optional[str] = "Unspecified"
     demographic_age_group: Optional[str] = "Unspecified"
 
@@ -80,7 +80,7 @@ class CandidateProfileOut(CandidateProfileBase):
     user_id: int
     full_name: Optional[str] = None
     email: Optional[str] = None
-    parsing_confidence: float = 0.0
+    parsing_confidence: Optional[float] = 0.0
     skills: List[CandidateSkillOut] = []
     experiences: List[ExperienceOut] = []
     educations: List[EducationOut] = []
