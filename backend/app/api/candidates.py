@@ -32,7 +32,7 @@ def serialize_candidate_profile(
 ) -> CandidateProfileOut:
     resumes_list = []
     if c.resumes:
-        for r in sorted(c.resumes, key=lambda x: x.created_at or datetime.min):
+        for r in sorted(c.resumes, key=lambda x: x.id or 0):
             resumes_list.append(ResumeSummaryOut(
                 id=r.id,
                 filename=r.filename,

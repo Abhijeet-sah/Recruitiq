@@ -31,9 +31,11 @@ export const CandidateProfilePage: React.FC = () => {
     loadProfile();
   }, [user]);
 
-  const loadProfile = async () => {
+  const loadProfile = async (silent = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silent && !profile) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await candidatesApi.getMyProfile();
@@ -49,8 +51,8 @@ export const CandidateProfilePage: React.FC = () => {
       const fallbackProfile: any = {
         id: user.candidate_profile_id || user.id,
         user_id: user.id,
-        full_name: user.full_name,
-        email: user.email,
+        full_name: user.full_name || 'Candidate',
+        email: user.email || '',
         phone: '',
         location: 'Remote / Hybrid',
         summary: '',
@@ -84,7 +86,7 @@ export const CandidateProfilePage: React.FC = () => {
     try {
       const res = await resumesApi.upload(file, profile?.id);
       setUploadMessage(res.message || `"${fileName}" uploaded and parsed successfully.`);
-      await loadProfile();
+      await loadProfile(true);
     } catch (err: any) {
       setError(err.message || 'Unable to parse this resume. Please upload a valid PDF or DOCX file.');
     } finally {
@@ -164,7 +166,7 @@ export const CandidateProfilePage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    {activeResume?.filename || `${profile.full_name.replace(/\s+/g, '_')}_Resume.pdf`}
+                    {activeResume?.filename || `${(profile?.full_name || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`}
                   </h3>
                   <Badge variant="success" size="sm">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Active & Parsed
@@ -172,7 +174,7 @@ export const CandidateProfilePage: React.FC = () => {
                 </div>
                 <p className="text-xs text-slate-500">
                   {activeResume?.file_size ? `${Math.round(activeResume.file_size / 1024)} KB • ` : ''}
-                  {activeResume?.created_at ? `Uploaded ${new Date(activeResume.created_at).toLocaleDateString()} • ` : ''}
+                  {activeResume?.created_at && !isNaN(new Date(activeResume.created_at).getTime()) ? `Uploaded ${new Date(activeResume.created_at).toLocaleDateString()} • ` : ''}
                   AI Confidence: <strong className="text-emerald-700 font-bold">{Math.round(profile.parsing_confidence || activeResume?.parsing_confidence || 85)}%</strong>
                 </p>
               </div>
