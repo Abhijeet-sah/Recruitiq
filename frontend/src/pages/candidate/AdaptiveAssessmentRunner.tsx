@@ -64,6 +64,8 @@ export const AdaptiveAssessmentRunner: React.FC = () => {
   useEffect(() => {
     if (appId) {
       startTest();
+      const timer = setTimeout(() => setLoading(false), 8000);
+      return () => clearTimeout(timer);
     } else {
       setError("Invalid application ID specified.");
       setLoading(false);

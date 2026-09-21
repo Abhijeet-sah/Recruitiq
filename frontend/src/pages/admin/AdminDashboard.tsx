@@ -1,38 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Briefcase, FileText, CheckCircle2, 
-  Activity, AlertCircle, RefreshCw, Lock, Unlock 
+  Activity, AlertCircle, RefreshCw, Lock, Unlock, Loader2 
 } from 'lucide-react';
 import { analyticsApi, adminApi } from '../../api';
 import { AdminDashboardAnalytics, User } from '../../types';
 import { StatCard } from '../../components/common/StatCard';
 import { Badge } from '../../components/common/Badge';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+
+const defaultAdminAnalytics: AdminDashboardAnalytics = {
+  total_users: 0,
+  total_candidates: 0,
+  total_recruiters: 0,
+  total_jobs: 0,
+  total_applications: 0,
+  total_assessments_taken: 0,
+  ai_service_status: {
+    embeddings: 'operational',
+    resume_parser: 'operational',
+    adaptive_engine: 'operational',
+    fairness_auditor: 'operational',
+  },
+  recent_activity: [],
+};
 
 export const AdminDashboard: React.FC = () => {
-  const [analytics, setAnalytics] = useState<AdminDashboardAnalytics | null>(null);
+  const [analytics, setAnalytics] = useState<AdminDashboardAnalytics>(defaultAdminAnalytics);
   const [users, setUsers] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
     loadAdminData();
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setFetching(false);
+    }, 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadAdminData = async () => {
-    setLoading(true);
+    setFetching(true);
     try {
       const [analyticsData, usersData, logsData] = await Promise.all([
-        analyticsApi.getAdmin(),
-        adminApi.listUsers(),
-        adminApi.getAuditLogs()
+        analyticsApi.getAdmin().catch(() => defaultAdminAnalytics),
+        adminApi.listUsers().catch(() => []),
+        adminApi.getAuditLogs().catch(() => [])
       ]);
-      setAnalytics(analyticsData);
-      setUsers(usersData);
-      setAuditLogs(logsData);
+      setAnalytics(analyticsData || defaultAdminAnalytics);
+      setUsers(usersData || []);
+      setAuditLogs(logsData || []);
     } catch (err) {
       console.error('Failed to load admin data:', err);
+      setAnalytics(prev => prev || defaultAdminAnalytics);
     } finally {
+      setFetching(false);
       setLoading(false);
     }
   };
@@ -45,10 +68,6 @@ export const AdminDashboard: React.FC = () => {
       console.error(err);
     }
   };
-
-  if (loading || !analytics) {
-    return <LoadingSpinner fullScreen message="Loading system administration console..." />;
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

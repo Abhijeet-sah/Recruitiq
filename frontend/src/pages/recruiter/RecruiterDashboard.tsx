@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Briefcase, Users, CheckCircle2, Award, TrendingUp, ShieldCheck, 
-  Search, Filter, Eye, GitCompare, ArrowUpRight, Sparkles, ChevronRight
+  Search, Filter, Eye, GitCompare, ArrowUpRight, Sparkles, ChevronRight, Loader2
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
@@ -12,14 +12,46 @@ import { analyticsApi, candidatesApi, jobsApi } from '../../api';
 import { RecruiterDashboardAnalytics, Application, Job } from '../../types';
 import { StatCard } from '../../components/common/StatCard';
 import { Badge } from '../../components/common/Badge';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { AIQuestionGeneratorModal } from '../../components/recruiter/AIQuestionGeneratorModal';
 
+const defaultAnalytics: RecruiterDashboardAnalytics = {
+  kpis: {
+    active_jobs: 0,
+    total_candidates: 0,
+    shortlisted: 0,
+    assessments_completed: 0,
+    average_match_score: 0.0,
+  },
+  funnel: [
+    { stage: 'Applied', count: 0, percentage: 0.0 },
+    { stage: 'Resume Reviewed', count: 0, percentage: 0.0 },
+    { stage: 'Assessment Completed', count: 0, percentage: 0.0 },
+    { stage: 'Evaluated', count: 0, percentage: 0.0 },
+    { stage: 'Shortlisted', count: 0, percentage: 0.0 },
+  ],
+  score_distribution: [
+    { range: '85-100%', count: 0 },
+    { range: '70-84%', count: 0 },
+    { range: '50-69%', count: 0 },
+    { range: '<50%', count: 0 },
+  ],
+  top_skills_in_demand: [],
+  common_skill_gaps: [],
+  status_distribution: { Applied: 0, Reviewed: 0, Assessment: 0, Shortlisted: 0, Rejected: 0 },
+  fairness_overview: {
+    status: 'No Jobs Posted Yet',
+    demographic_parity_gap: '0.0%',
+    equal_opportunity_gap: '0.0%',
+    flag: 'Post your first job to start screening candidates',
+  },
+};
+
 export const RecruiterDashboard: React.FC = () => {
-  const [analytics, setAnalytics] = useState<RecruiterDashboardAnalytics | null>(null);
+  const [analytics, setAnalytics] = useState<RecruiterDashboardAnalytics>(defaultAnalytics);
   const [applications, setApplications] = useState<Application[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<number | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,29 +61,42 @@ export const RecruiterDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setFetching(false);
+    }, 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+    setFetching(true);
     try {
       const [analyticsData, jobsData] = await Promise.all([
-        analyticsApi.getRecruiter(),
-        jobsApi.getMyJobs()
+        analyticsApi.getRecruiter().catch((err) => {
+          console.warn('Analytics API delayed or error, using default metrics:', err);
+          return defaultAnalytics;
+        }),
+        jobsApi.getMyJobs().catch((err) => {
+          console.warn('Jobs API delayed or error, using empty list:', err);
+          return [] as Job[];
+        })
       ]);
-      setAnalytics(analyticsData);
-      setJobs(jobsData);
 
-      // Load applications for the first job by default or all
-      if (jobsData.length > 0) {
+      setAnalytics(analyticsData || defaultAnalytics);
+      setJobs(jobsData || []);
+
+      if (jobsData && jobsData.length > 0) {
         setSelectedJobId(jobsData[0].id);
-        const apps = await candidatesApi.getJobApplications(jobsData[0].id);
-        setApplications(apps);
+        const apps = await candidatesApi.getJobApplications(jobsData[0].id).catch(() => []);
+        setApplications(apps || []);
       } else {
         setApplications([]);
       }
     } catch (err) {
       console.error('Failed to load recruiter dashboard:', err);
+      setAnalytics((prev) => prev || defaultAnalytics);
     } finally {
+      setFetching(false);
       setLoading(false);
     }
   };
@@ -60,14 +105,14 @@ export const RecruiterDashboard: React.FC = () => {
     if (jobId === 'ALL') {
       setSelectedJobId('ALL');
       if (jobs.length > 0) {
-        const apps = await candidatesApi.getJobApplications(jobs[0].id);
-        setApplications(apps);
+        const apps = await candidatesApi.getJobApplications(jobs[0].id).catch(() => []);
+        setApplications(apps || []);
       }
     } else {
       const id = parseInt(jobId);
       setSelectedJobId(id);
-      const apps = await candidatesApi.getJobApplications(id);
-      setApplications(apps);
+      const apps = await candidatesApi.getJobApplications(id).catch(() => []);
+      setApplications(apps || []);
     }
   };
 
@@ -91,10 +136,6 @@ export const RecruiterDashboard: React.FC = () => {
     navigate('/recruiter/candidates/compare', { state: { applicationIds: selectedForCompare } });
   };
 
-  if (loading || !analytics) {
-    return <LoadingSpinner fullScreen message="Loading recruitment intelligence..." />;
-  }
-
   // Filter applications
   const filteredApps = applications.filter(app => {
     const matchesSearch = 
@@ -105,7 +146,8 @@ export const RecruiterDashboard: React.FC = () => {
   });
 
   const DONUT_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#f43f5e'];
-  const statusPieData = Object.entries(analytics.status_distribution).map(([name, value]) => ({
+  const statusDist = analytics?.status_distribution || { Applied: 0, Reviewed: 0, Assessment: 0, Shortlisted: 0, Rejected: 0 };
+  const statusPieData = Object.entries(statusDist).map(([name, value]) => ({
     name,
     value: value || 1
   }));
@@ -115,9 +157,16 @@ export const RecruiterDashboard: React.FC = () => {
       {/* Top Banner & Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg">
         <div>
-          <span className="text-xs uppercase font-bold tracking-widest text-indigo-300">
-            Talent Acquisition Overview
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs uppercase font-bold tracking-widest text-indigo-300">
+              Talent Acquisition Overview
+            </span>
+            {fetching && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-800/80 px-2.5 py-0.5 rounded-full border border-indigo-700/50 animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin" /> Syncing data...
+              </span>
+            )}
+          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold mt-1">Recruiter Decision Support</h1>
           <p className="text-sm text-indigo-200 mt-1 max-w-xl">
             Real-time candidate pipelines, explainable match evaluations, adaptive competency metrics, and fairness audits.

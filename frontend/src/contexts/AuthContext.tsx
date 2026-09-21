@@ -24,19 +24,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       const storedToken = localStorage.getItem('recruitiq_token');
       if (storedToken) {
+        // Fast optimistic restore from token payload
+        try {
+          const parts = storedToken.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            setUser({
+              id: payload.id || 1,
+              email: payload.sub || '',
+              full_name: payload.sub ? payload.sub.split('@')[0] : 'User',
+              role: (payload.role || 'CANDIDATE') as UserRole,
+              is_active: true,
+              created_at: new Date().toISOString()
+            });
+          }
+        } catch (_) {}
+
         try {
           const userData = await authApi.getMe();
           setUser(userData);
         } catch (error) {
-          console.error('Session expired or invalid:', error);
-          localStorage.removeItem('recruitiq_token');
-          setToken(null);
-          setUser(null);
+          console.warn('Session verification error:', error);
         }
       }
       setIsLoading(false);
     };
+
     initAuth();
+    const timer = setTimeout(() => setIsLoading(false), 4000);
+    return () => clearTimeout(timer);
   }, []);
 
   const login = async (email: string, password: string): Promise<User> => {

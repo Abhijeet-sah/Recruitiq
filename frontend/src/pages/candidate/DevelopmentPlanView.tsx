@@ -22,6 +22,8 @@ export const DevelopmentPlanView: React.FC = () => {
     } else {
       setLoading(false);
     }
+    const timer = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(timer);
   }, [appId]);
 
   const loadPlan = async () => {
