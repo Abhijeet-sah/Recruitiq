@@ -69,15 +69,16 @@ def get_application_explanation(
         weights=weights
     )
 
-    factors = [ExplainabilityFactor(**f) for f in explanation["factor_breakdown"]]
+    factors_raw = explanation.get("factor_breakdown") or explanation.get("factors") or []
+    factors = [ExplainabilityFactor(**f) for f in factors_raw]
 
     return CandidateExplanationOut(
         candidate_id=candidate.id,
         application_id=app.id,
-        overall_score=explanation["overall_score"],
-        positive_factors=explanation["positive_factors"],
-        negative_factors=explanation["negative_factors"],
+        overall_score=explanation.get("overall_score", match_score),
+        positive_factors=explanation.get("positive_factors") or explanation.get("strong_points") or [],
+        negative_factors=explanation.get("negative_factors") or explanation.get("gap_points") or [],
         factor_breakdown=factors,
-        summary_narrative=explanation["summary_narrative"],
+        summary_narrative=explanation.get("summary_narrative", ""),
         is_llm_generated=False
     )

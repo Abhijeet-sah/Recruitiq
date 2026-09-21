@@ -42,7 +42,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 45000,
+  timeout: 90000,
 });
 
 // Intercept requests to dynamically update baseURL and attach token

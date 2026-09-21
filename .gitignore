@@ -39,6 +39,9 @@ dist-ssr/
 # Logs
 logs/
 *.log
+
+# Scratch scripts
+scratch*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

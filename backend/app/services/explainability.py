@@ -202,7 +202,7 @@ class ExplainabilityService:
             "level1_score_breakdown": lvl1,
             "level2_evidence_explanation": lvl2,
             "level3_model_explanation": lvl3,
-            # Backward-compatible fields
+            # Backward and schema compatible fields
             "factors": [
                 {
                     "name": f["factor"],
@@ -214,8 +214,21 @@ class ExplainabilityService:
                 }
                 for f in lvl1["factors"]
             ],
+            "factor_breakdown": [
+                {
+                    "name": f["factor"],
+                    "weight": f["weight_pct"] / 100.0,
+                    "candidate_val": f["score"],
+                    "contribution": f["contribution_points"],
+                    "impact": f["impact"],
+                    "explanation": f"Feature contribution: {f['contribution_points']} points ({f['weight_pct']}% weight)."
+                }
+                for f in lvl1["factors"]
+            ],
             "strong_points": strong_skills,
-            "gap_points": missing_skills
+            "gap_points": missing_skills,
+            "positive_factors": strong_skills,
+            "negative_factors": missing_skills
         }
 
 explainability_service = ExplainabilityService()
