@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from app.models.job import Job
 from app.schemas.candidate import (
     CandidateProfileOut, CandidateProfileUpdate,
     ApplicationCreate, ApplicationOut, ApplicationStatusUpdate,
-    ApplicationDetailOut
+    ApplicationDetailOut, ResumeSummaryOut
 )
 from app.services.matching import matching_service
 from app.services.skill_gap import skill_gap_service
@@ -22,6 +23,48 @@ import json
 from app.api.deps import get_current_user, require_role
 
 router = APIRouter(tags=["Candidates & Applications"])
+
+def serialize_candidate_profile(
+    c: CandidateProfile,
+    full_name: str,
+    email: str,
+    blind: bool = False
+) -> CandidateProfileOut:
+    resumes_list = []
+    if c.resumes:
+        for r in sorted(c.resumes, key=lambda x: x.created_at or datetime.min):
+            resumes_list.append(ResumeSummaryOut(
+                id=r.id,
+                filename=r.filename,
+                file_type=r.file_type,
+                file_size=r.file_size,
+                parsing_confidence=r.parsing_confidence,
+                created_at=r.created_at
+            ))
+    recent_r = resumes_list[-1] if resumes_list else None
+
+    return CandidateProfileOut(
+        id=c.id,
+        user_id=c.user_id,
+        full_name=f"Candidate #{c.id:04d}" if blind else full_name,
+        email=f"candidate_{c.id}@blindscreen.internal" if blind else email,
+        phone=None if blind else (c.phone or ""),
+        location="Redacted (Blind Screening)" if blind else (c.location or "Remote / Hybrid"),
+        summary=c.summary or "",
+        linkedin_url=None if blind else (c.linkedin_url or ""),
+        github_url=None if blind else (c.github_url or ""),
+        portfolio_url=None if blind else (c.portfolio_url or ""),
+        years_of_experience=c.years_of_experience if c.years_of_experience is not None else 1.0,
+        education_level=c.education_level or "Bachelor's Degree",
+        demographic_gender=None if blind else (c.demographic_gender or "Unspecified"),
+        demographic_age_group=None if blind else (c.demographic_age_group or "Unspecified"),
+        parsing_confidence=c.parsing_confidence if c.parsing_confidence is not None else 0.0,
+        skills=c.skills or [],
+        experiences=c.experiences or [],
+        educations=c.educations or [],
+        resumes=resumes_list,
+        recent_resume=recent_r
+    )
 
 @router.get("/candidates", response_model=List[CandidateProfileOut])
 def list_candidates(
@@ -52,27 +95,9 @@ def list_candidates(
             if not has_skill:
                 continue
 
-        out = CandidateProfileOut(
-            id=c.id,
-            user_id=c.user_id,
-            full_name=f"Candidate #{c.id:04d}" if blind else (c.user.full_name if c.user else "Candidate"),
-            email=f"candidate_{c.id}@blindscreen.internal" if blind else (c.user.email if c.user else ""),
-            phone=None if blind else c.phone,
-            location="Redacted (Blind Screening)" if blind else c.location,
-            summary=c.summary,
-            linkedin_url=None if blind else c.linkedin_url,
-            github_url=None if blind else c.github_url,
-            portfolio_url=None if blind else c.portfolio_url,
-            years_of_experience=c.years_of_experience,
-            education_level=c.education_level,
-            demographic_gender=None if blind else c.demographic_gender,
-            demographic_age_group=None if blind else c.demographic_age_group,
-            parsing_confidence=c.parsing_confidence,
-            skills=c.skills,
-            experiences=c.experiences,
-            educations=c.educations
-        )
-        result.append(out)
+        c_name = c.user.full_name if c.user else "Candidate"
+        c_email = c.user.email if c.user else ""
+        result.append(serialize_candidate_profile(c, c_name, c_email, blind=blind))
 
     return result
 
@@ -96,26 +121,7 @@ def get_my_candidate_profile(
         db.commit()
         db.refresh(c)
 
-    return CandidateProfileOut(
-        id=c.id,
-        user_id=c.user_id,
-        full_name=current_user.full_name,
-        email=current_user.email,
-        phone=c.phone or "",
-        location=c.location or "Remote / Hybrid",
-        summary=c.summary or "",
-        linkedin_url=c.linkedin_url or "",
-        github_url=c.github_url or "",
-        portfolio_url=c.portfolio_url or "",
-        years_of_experience=c.years_of_experience if c.years_of_experience is not None else 1.0,
-        education_level=c.education_level or "Bachelor's Degree",
-        demographic_gender=c.demographic_gender or "Unspecified",
-        demographic_age_group=c.demographic_age_group or "Unspecified",
-        parsing_confidence=c.parsing_confidence if c.parsing_confidence is not None else 0.0,
-        skills=c.skills or [],
-        experiences=c.experiences or [],
-        educations=c.educations or []
-    )
+    return serialize_candidate_profile(c, current_user.full_name, current_user.email, blind=False)
 
 @router.get("/candidates/{id}", response_model=CandidateProfileOut)
 def get_candidate(
@@ -133,26 +139,9 @@ def get_candidate(
         if not current_user.candidate_profile or current_user.candidate_profile.id != c.id:
             raise ForbiddenException("Access denied: You can only view your own candidate profile.")
 
-    return CandidateProfileOut(
-        id=c.id,
-        user_id=c.user_id,
-        full_name=f"Candidate #{c.id:04d}" if blind else (c.user.full_name if c.user else "Candidate"),
-        email=f"candidate_{c.id}@blindscreen.internal" if blind else (c.user.email if c.user else ""),
-        phone=None if blind else c.phone,
-        location="Redacted (Blind Screening)" if blind else c.location,
-        summary=c.summary,
-        linkedin_url=None if blind else c.linkedin_url,
-        github_url=None if blind else c.github_url,
-        portfolio_url=None if blind else c.portfolio_url,
-        years_of_experience=c.years_of_experience,
-        education_level=c.education_level,
-        demographic_gender=None if blind else c.demographic_gender,
-        demographic_age_group=None if blind else c.demographic_age_group,
-        parsing_confidence=c.parsing_confidence,
-        skills=c.skills,
-        experiences=c.experiences,
-        educations=c.educations
-    )
+    c_name = c.user.full_name if c.user else "Candidate"
+    c_email = c.user.email if c.user else ""
+    return serialize_candidate_profile(c, c_name, c_email, blind=blind)
 
 @router.put("/candidates/{id}", response_model=CandidateProfileOut)
 def update_candidate_profile(
@@ -174,26 +163,9 @@ def update_candidate_profile(
 
     db.commit()
     db.refresh(c)
-    return CandidateProfileOut(
-        id=c.id,
-        user_id=c.user_id,
-        full_name=c.user.full_name if c.user else "Candidate",
-        email=c.user.email if c.user else "",
-        phone=c.phone,
-        location=c.location,
-        summary=c.summary,
-        linkedin_url=c.linkedin_url,
-        github_url=c.github_url,
-        portfolio_url=c.portfolio_url,
-        years_of_experience=c.years_of_experience,
-        education_level=c.education_level,
-        demographic_gender=c.demographic_gender,
-        demographic_age_group=c.demographic_age_group,
-        parsing_confidence=c.parsing_confidence,
-        skills=c.skills,
-        experiences=c.experiences,
-        educations=c.educations
-    )
+    c_name = c.user.full_name if c.user else "Candidate"
+    c_email = c.user.email if c.user else ""
+    return serialize_candidate_profile(c, c_name, c_email, blind=False)
 
 @router.post("/applications", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
 def apply_to_job(

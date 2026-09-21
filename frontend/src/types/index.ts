@@ -99,6 +99,15 @@ export interface Education {
   gpa?: string;
 }
 
+export interface ResumeSummary {
+  id: number;
+  filename: string;
+  file_type: string;
+  file_size: number;
+  parsing_confidence: number;
+  created_at?: string;
+}
+
 export interface CandidateProfile {
   id: number;
   user_id: number;
@@ -118,7 +127,8 @@ export interface CandidateProfile {
   skills: CandidateSkill[];
   experiences: Experience[];
   educations: Education[];
-  resumes?: Array<{ id: number; filename?: string; uploaded_at?: string }>;
+  resumes?: ResumeSummary[];
+  recent_resume?: ResumeSummary;
 }
 
 export interface Application {

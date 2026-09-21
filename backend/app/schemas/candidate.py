@@ -75,6 +75,17 @@ class CandidateProfileUpdate(BaseModel):
     years_of_experience: Optional[float] = None
     education_level: Optional[str] = None
 
+class ResumeSummaryOut(BaseModel):
+    id: int
+    filename: str
+    file_type: str
+    file_size: int
+    parsing_confidence: float
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class CandidateProfileOut(CandidateProfileBase):
     id: int
     user_id: int
@@ -84,6 +95,8 @@ class CandidateProfileOut(CandidateProfileBase):
     skills: List[CandidateSkillOut] = []
     experiences: List[ExperienceOut] = []
     educations: List[EducationOut] = []
+    resumes: List[ResumeSummaryOut] = []
+    recent_resume: Optional[ResumeSummaryOut] = None
 
     class Config:
         from_attributes = True
