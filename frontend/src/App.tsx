@@ -57,7 +57,10 @@ const ProtectedRoute: React.FC<{
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role) && role !== 'ADMIN') {
-    return <Navigate to="/" replace />;
+    const fallbackPath = role === 'RECRUITER' 
+      ? '/recruiter/dashboard' 
+      : '/candidate/dashboard';
+    return <Navigate to={fallbackPath} replace />;
   }
 
   return <>{children}</>;

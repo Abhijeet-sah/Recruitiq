@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, LogOut, User as UserIcon, Shield, Briefcase, Award, BarChart3, Users, Cpu, FlaskConical } from 'lucide-react';
+import { Sparkles, LogOut, User as UserIcon, Shield, Briefcase, Award, BarChart3, Users, Cpu, FlaskConical, Menu, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Badge } from './Badge';
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -157,7 +158,7 @@ export const Navbar: React.FC = () => {
               <button
                 onClick={handleLogout}
                 title="Sign out"
-                className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -166,20 +167,151 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition-all"
+                className="px-3.5 py-1.5 text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition-all"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs hover:shadow-md shadow-indigo-500/20 transition-all"
+                className="px-3.5 py-1.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs hover:shadow-md shadow-indigo-500/20 transition-all"
               >
                 Get Started
               </Link>
             </div>
           )}
+
+          {/* Mobile menu toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile navigation panel */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-5 space-y-2 shadow-lg">
+          {!isAuthenticated ? (
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { handleScrollTo('workflow'); setMobileMenuOpen(false); }}
+                className="text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                How It Works
+              </button>
+              <button
+                onClick={() => { handleScrollTo('features'); setMobileMenuOpen(false); }}
+                className="text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Core Features
+              </button>
+              <button
+                onClick={() => { handleScrollTo('fairness'); setMobileMenuOpen(false); }}
+                className="text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Fairness Audit
+              </button>
+              <div className="pt-2 border-t border-slate-100 flex gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 text-center py-2 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 text-center py-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white"
+                >
+                  Register
+                </Link>
+              </div>
+            </div>
+          ) : user?.role === 'RECRUITER' ? (
+            <div className="flex flex-col gap-1">
+              <div className="px-3 py-2 mb-1 bg-indigo-50/70 rounded-lg text-xs font-semibold text-indigo-800 flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5" /> Recruiter Portal ({user.full_name})
+              </div>
+              <Link
+                to="/recruiter/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <BarChart3 className="w-4 h-4 text-indigo-500" /> Dashboard
+              </Link>
+              <Link
+                to="/recruiter/jobs/new"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <Briefcase className="w-4 h-4 text-indigo-500" /> Post New Job
+              </Link>
+              <Link
+                to="/recruiter/rankings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <Award className="w-4 h-4 text-indigo-500" /> Candidate Rankings
+              </Link>
+              <Link
+                to="/recruiter/fairness"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4 text-indigo-500" /> Fairness Audit
+              </Link>
+              <Link
+                to="/admin/models"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <Cpu className="w-4 h-4 text-indigo-500" /> Model Registry
+              </Link>
+            </div>
+          ) : user?.role === 'CANDIDATE' ? (
+            <div className="flex flex-col gap-1">
+              <div className="px-3 py-2 mb-1 bg-emerald-50/70 rounded-lg text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                <UserIcon className="w-3.5 h-3.5" /> Candidate Portal ({user.full_name})
+              </div>
+              <Link
+                to="/candidate/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <BarChart3 className="w-4 h-4 text-indigo-500" /> My Career Dashboard
+              </Link>
+              <Link
+                to="/candidate/jobs"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <Briefcase className="w-4 h-4 text-indigo-500" /> Explore Jobs
+              </Link>
+              <Link
+                to="/candidate/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <UserIcon className="w-4 h-4 text-indigo-500" /> Profile & Resume
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <Link
+                to="/admin/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4 text-indigo-500" /> Admin Console
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 };

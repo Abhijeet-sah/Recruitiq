@@ -8,7 +8,7 @@ import { RecruitmentFlow } from '../components/workflow/RecruitmentFlow';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LandingPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,28 +68,53 @@ export const LandingPage: React.FC = () => {
             An AI-powered recruitment platform that understands candidate skills, evaluates real capabilities through adaptive testing, explains every score, and identifies actionable skill gaps.
           </p>
 
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/register"
-              className="px-6 py-3.5 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/20 hover:scale-[1.02] transition-all flex items-center gap-2"
-            >
-              Get Started Free <ArrowRight className="w-4 h-4" />
-            </Link>
-            
-            <button
-              onClick={handleDemoRecruiterLogin}
-              className="px-6 py-3.5 text-base font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-xs transition-all flex items-center gap-2"
-            >
-              Recruiter Demo <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-mono">1-Click</span>
-            </button>
+          {/* If already authenticated, show personalized dashboard quick launch */}
+          {isAuthenticated && user ? (
+            <div className="mt-8 max-w-md mx-auto p-4 rounded-2xl bg-indigo-50/90 border border-indigo-200 shadow-sm text-center">
+              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                Signed In Session Active
+              </p>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">
+                {user.full_name} ({user.role})
+              </p>
+              <Link
+                to={user.role === 'RECRUITER' ? '/recruiter/dashboard' : user.role === 'ADMIN' ? '/admin/dashboard' : '/candidate/dashboard'}
+                className="mt-3 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition-all"
+              >
+                Go to {user.role === 'RECRUITER' ? 'Recruiter Dashboard' : user.role === 'ADMIN' ? 'Admin Console' : 'Career Portal'} <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3.5">
+              <Link
+                to="/register?role=recruiter"
+                className="px-5 py-3.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/20 hover:scale-[1.02] transition-all flex items-center gap-2"
+              >
+                Recruiter Sign Up <ArrowRight className="w-4 h-4" />
+              </Link>
 
-            <button
-              onClick={handleDemoCandidateLogin}
-              className="px-6 py-3.5 text-base font-semibold text-slate-700 hover:text-indigo-600 bg-transparent hover:bg-slate-100/80 border border-transparent rounded-xl transition-all"
-            >
-              Candidate Demo <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono">1-Click</span>
-            </button>
-          </div>
+              <Link
+                to="/register?role=candidate"
+                className="px-5 py-3.5 text-sm font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-xs hover:scale-[1.02] transition-all flex items-center gap-2"
+              >
+                Candidate Sign Up <ArrowRight className="w-4 h-4" />
+              </Link>
+              
+              <button
+                onClick={handleDemoRecruiterLogin}
+                className="px-4 py-3.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                Recruiter Demo <span className="text-xs bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-mono">1-Click</span>
+              </button>
+
+              <button
+                onClick={handleDemoCandidateLogin}
+                className="px-4 py-3.5 text-sm font-semibold text-slate-700 hover:text-indigo-600 bg-transparent hover:bg-slate-100/80 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                Candidate Demo <span className="text-xs bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono">1-Click</span>
+              </button>
+            </div>
+          )}
 
           {/* Quick Metrics Bar */}
           <div className="mt-16 pt-10 border-t border-slate-200/80 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto text-left">
