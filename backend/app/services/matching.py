@@ -67,15 +67,16 @@ class SemanticMatchingService:
         Calculate experience alignment based on duration and domain text relevance.
         """
         target_years = self.parse_required_years(required_exp_str)
+        cand_years = float(candidate_years) if candidate_years is not None else 0.0
         
         # Duration ratio
         if target_years <= 0:
             duration_score = 100.0
-        elif candidate_years >= target_years:
+        elif cand_years >= target_years:
             # Full score if meets or slightly exceeds, capped at 100
             duration_score = 100.0
         else:
-            duration_score = (candidate_years / target_years) * 90.0
+            duration_score = (cand_years / target_years) * 90.0
 
         # Domain semantic relevance
         domain_sim = vectorizer.cosine_similarity(candidate_text, job_text)

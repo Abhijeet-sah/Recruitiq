@@ -14,6 +14,7 @@ from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/rankings", tags=["Candidate Rankings"])
 
+@router.get("/job/{job_id}", response_model=List[CandidateRankingOut])
 @router.post("/job/{job_id}", response_model=List[CandidateRankingOut])
 def get_or_compute_job_rankings(
     job_id: int,
@@ -29,8 +30,8 @@ def get_or_compute_job_rankings(
     if not job:
         raise NotFoundException("Job not found")
 
-    if current_user.role == UserRole.RECRUITER and job.recruiter_id != current_user.id:
-        raise ForbiddenException("Access denied: You can only view rankings for your own job postings.")
+    if current_user.role == UserRole.CANDIDATE:
+        raise ForbiddenException("Access denied: Candidates cannot view candidate rankings.")
 
     if not weights:
         weights = RankingWeights()

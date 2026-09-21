@@ -33,8 +33,8 @@ def get_job_fairness_audit(
     if not job:
         raise NotFoundException("Job not found")
 
-    if current_user.role == UserRole.RECRUITER and job.recruiter_id != current_user.id:
-        raise ForbiddenException("Access denied: You can only view fairness audits for your own job postings.")
+    if current_user.role == UserRole.CANDIDATE:
+        raise ForbiddenException("Access denied: Candidates cannot view fairness audits.")
 
     apps = db.query(Application).filter(Application.job_id == job_id).all()
     candidates_data = []
