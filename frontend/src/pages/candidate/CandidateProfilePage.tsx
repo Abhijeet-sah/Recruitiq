@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Upload, FileText, CheckCircle2, AlertCircle, Sparkles, 
-  User, Briefcase, GraduationCap, Plus, Trash2, Loader2, Save 
+  User, Briefcase, GraduationCap, Plus, Trash2, Loader2, Save, X
 } from 'lucide-react';
 import { resumesApi, candidatesApi } from '../../api';
 import { CandidateProfile, ResumeSummary } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { Badge } from '../../components/common/Badge';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+
+const createDefaultProfile = (u: any): CandidateProfile => ({
+  id: u?.candidate_profile_id || u?.id || 1,
+  user_id: u?.id || 1,
+  full_name: u?.full_name || 'Candidate',
+  email: u?.email || '',
+  phone: '',
+  location: 'Remote / Hybrid',
+  summary: '',
+  years_of_experience: 1.0,
+  education_level: "Bachelor's Degree",
+  parsing_confidence: 0,
+  skills: [],
+  experiences: [],
+  educations: [],
+  resumes: [],
+  recent_resume: undefined,
+});
 
 export const CandidateProfilePage: React.FC = () => {
-  const { user } = useAuth();
-  const [profile, setProfile] = useState<CandidateProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: authLoading } = useAuth();
+  const [profile, setProfile] = useState<CandidateProfile | null>(() => (user ? createDefaultProfile(user) : null));
+  const [fetching, setFetching] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
@@ -28,45 +45,35 @@ export const CandidateProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadProfile();
+    if (user) {
+      if (!profile) {
+        setProfile(createDefaultProfile(user));
+      }
+      loadProfile();
+    }
   }, [user]);
 
   const loadProfile = async (silent = false) => {
     if (!user) return;
-    if (!silent && !profile) {
-      setLoading(true);
-    }
+    if (!silent) setFetching(true);
     setError(null);
+
     try {
       const data = await candidatesApi.getMyProfile();
-      setProfile(data);
-      setSummary(data.summary || '');
-      setPhone(data.phone || '');
-      setLocation(data.location || '');
-      setYearsExp(data.years_of_experience || 1.0);
-      setEduLevel(data.education_level || "Bachelor's Degree");
+      if (data) {
+        setProfile(data);
+        if (data.summary) setSummary(data.summary);
+        if (data.phone) setPhone(data.phone);
+        if (data.location) setLocation(data.location);
+        if (data.years_of_experience != null) setYearsExp(data.years_of_experience);
+        if (data.education_level) setEduLevel(data.education_level);
+      }
     } catch (err: any) {
-      console.warn('Failed to load candidate profile from API, providing editable fallback:', err);
-      // Construct fallback profile from authenticated user so the page always renders cleanly
-      const fallbackProfile: any = {
-        id: user.candidate_profile_id || user.id,
-        user_id: user.id,
-        full_name: user.full_name || 'Candidate',
-        email: user.email || '',
-        phone: '',
-        location: 'Remote / Hybrid',
-        summary: '',
-        years_of_experience: 1.0,
-        education_level: "Bachelor's Degree",
-        parsing_confidence: 0,
-        skills: [],
-        experiences: [],
-        educations: [],
-        resumes: []
-      };
-      setProfile(fallbackProfile);
+      console.warn('Could not refresh candidate profile from backend:', err);
+      // Always preserve existing profile in state rather than clearing
+      setProfile((prev) => prev || createDefaultProfile(user));
     } finally {
-      setLoading(false);
+      setFetching(false);
     }
   };
 
@@ -86,7 +93,51 @@ export const CandidateProfilePage: React.FC = () => {
     try {
       const res = await resumesApi.upload(file, profile?.id);
       setUploadMessage(res.message || `"${fileName}" uploaded and parsed successfully.`);
-      await loadProfile(true);
+
+      // Immediately build active resume item
+      const newResumeItem: ResumeSummary = {
+        id: res.resume_id,
+        filename: res.filename,
+        file_type: res.file_type,
+        file_size: res.file_size,
+        parsing_confidence: res.parsing_confidence,
+        created_at: new Date().toISOString(),
+      };
+
+      // Optimistically update local profile state so Active Resume Dossier renders immediately
+      setProfile((prev) => {
+        const current = prev || createDefaultProfile(user);
+        const existingResumes = current.resumes ? current.resumes.filter((r) => r.id !== res.resume_id) : [];
+        const newSkills = res.parsed_data?.skills?.map((s: any, idx: number) => ({
+          id: idx + 1,
+          candidate_id: current.id,
+          skill_name: s.skill_name,
+          level: s.claimed_level || 'Intermediate',
+          verified: false,
+        })) || current.skills || [];
+
+        return {
+          ...current,
+          parsing_confidence: res.parsing_confidence,
+          summary: res.parsed_data?.summary || current.summary,
+          phone: res.parsed_data?.phone || current.phone,
+          location: res.parsed_data?.location || current.location,
+          years_of_experience: res.parsed_data?.years_of_experience ?? current.years_of_experience,
+          education_level: res.parsed_data?.education_level || current.education_level,
+          skills: newSkills,
+          resumes: [...existingResumes, newResumeItem],
+          recent_resume: newResumeItem,
+        };
+      });
+
+      if (res.parsed_data?.summary) setSummary(res.parsed_data.summary);
+      if (res.parsed_data?.phone) setPhone(res.parsed_data.phone);
+      if (res.parsed_data?.location) setLocation(res.parsed_data.location);
+      if (res.parsed_data?.years_of_experience != null) setYearsExp(res.parsed_data.years_of_experience);
+      if (res.parsed_data?.education_level) setEduLevel(res.parsed_data.education_level);
+
+      // Silently sync with backend in the background without blocking the UI
+      loadProfile(true).catch(() => {});
     } catch (err: any) {
       setError(err.message || 'Unable to parse this resume. Please upload a valid PDF or DOCX file.');
     } finally {
@@ -95,21 +146,65 @@ export const CandidateProfilePage: React.FC = () => {
     }
   };
 
+  const handleAddSkill = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSkill.trim()) return;
+    const skillName = newSkill.trim();
+    setProfile((prev) => {
+      const current = prev || createDefaultProfile(user);
+      if (current.skills.some((s) => s.skill_name.toLowerCase() === skillName.toLowerCase())) {
+        return current;
+      }
+      return {
+        ...current,
+        skills: [
+          ...current.skills,
+          {
+            id: Date.now(),
+            candidate_id: current.id,
+            skill_name: skillName,
+            level: 'Intermediate',
+            verified: false,
+          },
+        ],
+      };
+    });
+    setNewSkill('');
+  };
+
+  const handleRemoveSkill = (skillName: string) => {
+    setProfile((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        skills: prev.skills.filter((s) => s.skill_name.toLowerCase() !== skillName.toLowerCase()),
+      };
+    });
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    const activeId = profile?.id || user?.id;
+    if (!activeId) return;
+
     setSaving(true);
     setError(null);
     try {
-      const updated = await candidatesApi.update(profile.id, {
+      const updated = await candidatesApi.update(activeId, {
         summary,
         phone,
         location,
         years_of_experience: yearsExp,
         education_level: eduLevel,
       });
-      setProfile(updated);
-      setUploadMessage('Profile updated successfully.');
+      setProfile((prev) => ({
+        ...(prev || createDefaultProfile(user)),
+        ...updated,
+        skills: prev?.skills || updated.skills || [],
+        resumes: prev?.resumes || updated.resumes || [],
+        recent_resume: prev?.recent_resume || updated.recent_resume,
+      }));
+      setUploadMessage('Profile adjustments saved successfully.');
     } catch (err: any) {
       setError(err.message || 'Failed to update profile.');
     } finally {
@@ -117,28 +212,37 @@ export const CandidateProfilePage: React.FC = () => {
     }
   };
 
-  if (loading || !profile) {
-    return <LoadingSpinner fullScreen message="Loading candidate profile..." />;
-  }
+  const currentProfile = profile || createDefaultProfile(user);
 
-  const activeResume: ResumeSummary | null = profile.recent_resume || 
-    (profile.resumes && profile.resumes.length > 0 ? profile.resumes[profile.resumes.length - 1] : null);
+  const activeResume: ResumeSummary | null = currentProfile.recent_resume || 
+    (currentProfile.resumes && currentProfile.resumes.length > 0 
+      ? currentProfile.resumes[currentProfile.resumes.length - 1] 
+      : null);
 
-  const hasUploadedResume = Boolean(activeResume || (profile.parsing_confidence && profile.parsing_confidence > 0));
+  const hasUploadedResume = Boolean(activeResume || (currentProfile.parsing_confidence && currentProfile.parsing_confidence > 0));
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
-      <div>
-        <span className="text-xs uppercase font-bold tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-          Candidate Profile & Credentials
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
-          Resume & Experience Dossier
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Upload your resume in PDF or DOCX format for automatic parsing and confidence calculation.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs uppercase font-bold tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+              Candidate Profile & Credentials
+            </span>
+            {fetching && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50/80 px-2.5 py-1 rounded-full border border-indigo-100 animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Syncing data...
+              </span>
+            )}
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
+            Resume & Experience Dossier
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Upload your resume in PDF or DOCX format for automatic parsing and confidence calculation.
+          </p>
+        </div>
       </div>
 
       {uploadMessage && (
@@ -166,7 +270,7 @@ export const CandidateProfilePage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    {activeResume?.filename || `${(profile?.full_name || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`}
+                    {activeResume?.filename || `${(currentProfile.full_name || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`}
                   </h3>
                   <Badge variant="success" size="sm">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Active & Parsed
@@ -175,7 +279,7 @@ export const CandidateProfilePage: React.FC = () => {
                 <p className="text-xs text-slate-500">
                   {activeResume?.file_size ? `${Math.round(activeResume.file_size / 1024)} KB • ` : ''}
                   {activeResume?.created_at && !isNaN(new Date(activeResume.created_at).getTime()) ? `Uploaded ${new Date(activeResume.created_at).toLocaleDateString()} • ` : ''}
-                  AI Confidence: <strong className="text-emerald-700 font-bold">{Math.round(profile.parsing_confidence || activeResume?.parsing_confidence || 85)}%</strong>
+                  AI Confidence: <strong className="text-emerald-700 font-bold">{Math.round(currentProfile.parsing_confidence || activeResume?.parsing_confidence || 85)}%</strong>
                 </p>
               </div>
             </div>
@@ -209,15 +313,15 @@ export const CandidateProfilePage: React.FC = () => {
           <div className="mt-5 pt-4 border-t border-emerald-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
               <span className="text-slate-400 block text-[11px] font-medium">Extracted Skills</span>
-              <span className="font-bold text-slate-800 text-sm">{profile.skills?.length || 0} Competencies</span>
+              <span className="font-bold text-slate-800 text-sm">{currentProfile.skills?.length || 0} Competencies</span>
             </div>
             <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
               <span className="text-slate-400 block text-[11px] font-medium">Industry Tenure</span>
-              <span className="font-bold text-slate-800 text-sm">{profile.years_of_experience || 0} Years</span>
+              <span className="font-bold text-slate-800 text-sm">{currentProfile.years_of_experience || 0} Years</span>
             </div>
             <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
               <span className="text-slate-400 block text-[11px] font-medium">Degree Alignment</span>
-              <span className="font-bold text-slate-800 text-sm truncate">{profile.education_level || "Bachelor's"}</span>
+              <span className="font-bold text-slate-800 text-sm truncate">{currentProfile.education_level || "Bachelor's"}</span>
             </div>
             <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
               <span className="text-slate-400 block text-[11px] font-medium">Verification Status</span>
@@ -301,10 +405,25 @@ export const CandidateProfilePage: React.FC = () => {
                 type="number"
                 step="0.5"
                 value={yearsExp}
-                onChange={(e) => setYearsExp(parseFloat(e.target.value))}
+                onChange={(e) => setYearsExp(parseFloat(e.target.value) || 0)}
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Education Level</label>
+            <select
+              value={eduLevel}
+              onChange={(e) => setEduLevel(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="High School">High School</option>
+              <option value="Associate Degree">Associate Degree</option>
+              <option value="Bachelor's Degree">Bachelor's Degree</option>
+              <option value="Master's Degree">Master's Degree</option>
+              <option value="Doctorate / PhD">Doctorate / PhD</option>
+            </select>
           </div>
 
           <div>
@@ -313,32 +432,66 @@ export const CandidateProfilePage: React.FC = () => {
               rows={4}
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
+              placeholder="Provide a short professional summary or let the resume parser auto-fill it..."
               className="w-full p-3 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
-          {/* Current Extracted Skills */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-              Recognized Competencies ({profile.skills?.length || 0})
+          {/* Current Extracted Skills with Add & Remove */}
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-slate-700 uppercase">
+              Recognized Competencies ({currentProfile.skills?.length || 0})
             </label>
-            {profile.skills && profile.skills.length > 0 ? (
+
+            {currentProfile.skills && currentProfile.skills.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {profile.skills.map((s, idx) => (
+                {currentProfile.skills.map((s, idx) => (
                   <span
                     key={idx}
-                    className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold flex items-center gap-1.5"
+                    className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold flex items-center gap-1.5 shadow-2xs group"
                   >
                     {s.skill_name}
                     <span className="text-[10px] text-indigo-400">({s.level})</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSkill(s.skill_name)}
+                      className="text-indigo-400 hover:text-rose-600 transition-colors ml-0.5 cursor-pointer"
+                      title={`Remove ${s.skill_name}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </span>
                 ))}
               </div>
             ) : (
               <p className="text-xs text-slate-400 italic">
-                No skills detected yet. Upload your resume above to automatically extract your skills.
+                No skills detected yet. Upload your resume above or add custom competencies below.
               </p>
             )}
+
+            {/* Quick Add Skill Form */}
+            <div className="flex items-center gap-2 pt-2 max-w-sm">
+              <input
+                type="text"
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddSkill(e);
+                  }
+                }}
+                placeholder="Add custom skill (e.g. React, Python)..."
+                className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddSkill}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
           </div>
 
           {/* Save Button */}

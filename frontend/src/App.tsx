@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Navbar } from './components/common/Navbar';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
+import { resolveBackendUrl } from './api/client';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -63,6 +64,15 @@ const ProtectedRoute: React.FC<{
 };
 
 export const App: React.FC = () => {
+  React.useEffect(() => {
+    try {
+      const target = resolveBackendUrl();
+      if (target) {
+        fetch(`${target}/health`, { method: 'GET' }).catch(() => {});
+      }
+    } catch (_) {}
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

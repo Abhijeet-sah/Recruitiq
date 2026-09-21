@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, Lock, Mail, User, Briefcase, UserCheck, AlertCircle, Shield, Settings } from 'lucide-react';
+import { Sparkles, ArrowRight, Lock, Mail, User, Briefcase, UserCheck, AlertCircle, Shield } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
-import { BackendConfigModal } from '../../components/common/BackendConfigModal';
-import { resolveBackendUrl } from '../../api/client';
 import clsx from 'clsx';
 
 export const Register: React.FC = () => {
@@ -15,7 +13,6 @@ export const Register: React.FC = () => {
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -178,25 +175,8 @@ export const Register: React.FC = () => {
               Sign in
             </Link>
           </div>
-
-          <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-            <button
-              type="button"
-              onClick={() => setConfigOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Backend Server: {resolveBackendUrl() || 'Default API'}</span>
-            </button>
-          </div>
         </div>
       </div>
-
-      <BackendConfigModal
-        isOpen={configOpen}
-        onClose={() => setConfigOpen(false)}
-        onConnected={() => setError(null)}
-      />
     </div>
   );
 };

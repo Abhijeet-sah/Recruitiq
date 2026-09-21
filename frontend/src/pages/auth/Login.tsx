@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, Lock, Mail, AlertCircle, Settings } from 'lucide-react';
+import { Sparkles, ArrowRight, Lock, Mail, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { BackendConfigModal } from '../../components/common/BackendConfigModal';
-import { resolveBackendUrl } from '../../api/client';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -147,25 +144,8 @@ export const Login: React.FC = () => {
               Create an account
             </Link>
           </div>
-
-          <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-            <button
-              type="button"
-              onClick={() => setConfigOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Backend Server: {resolveBackendUrl() || 'Default API'}</span>
-            </button>
-          </div>
         </div>
       </div>
-
-      <BackendConfigModal
-        isOpen={configOpen}
-        onClose={() => setConfigOpen(false)}
-        onConnected={() => setError(null)}
-      />
     </div>
   );
 };

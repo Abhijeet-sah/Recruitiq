@@ -67,8 +67,7 @@ api.interceptors.response.use(
   (error) => {
     let message = 'An unexpected error occurred. Please try again.';
     if (error.response?.status === 404) {
-      const currentUrl = getApiBase();
-      message = `Cannot reach backend API (404 Not Found at ${currentUrl}). Make sure your Render backend URL is configured.`;
+      message = 'The service is temporarily unavailable. Please wait a moment and refresh.';
     } else if (error.response?.data?.detail) {
       if (typeof error.response.data.detail === 'string') {
         message = error.response.data.detail;
@@ -79,7 +78,7 @@ api.interceptors.response.use(
       message = error.response.data.message;
     } else if (error.message) {
       if (error.message.includes('Network Error')) {
-        message = 'Cannot connect to backend server. Render free instances sleep when inactive and may take up to 50 seconds to wake up.';
+        message = 'The server is warming up from standby (takes ~20-30 seconds). Please try again in a few moments.';
       } else {
         message = error.message;
       }

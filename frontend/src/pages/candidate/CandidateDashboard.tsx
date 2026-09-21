@@ -17,6 +17,8 @@ export const CandidateDashboard: React.FC = () => {
 
   useEffect(() => {
     loadMyApplications();
+    const timer = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadMyApplications = async () => {
