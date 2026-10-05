@@ -49,6 +49,7 @@ export interface AuthResponse {
 
 export interface JobSkill {
   id?: number;
+  job_id?: number;
   skill_name: string;
   is_required: boolean;
   importance_weight: SkillImportance;

@@ -9,7 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  socialLogin: (payload: { provider: string; email: string; full_name: string; avatar_url?: string; role?: UserRole }) => Promise<User>;
+  socialLogin: (payload: { provider: string; email: string; full_name: string; password?: string; avatar_url?: string; role?: UserRole }) => Promise<User>;
   register: (payload: { email: string; password: string; full_name: string; role: UserRole }) => Promise<User>;
   logout: () => void;
 }
@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return userObj;
   };
 
-  const socialLogin = async (payload: { provider: string; email: string; full_name: string; avatar_url?: string; role?: UserRole }): Promise<User> => {
+  const socialLogin = async (payload: { provider: string; email: string; full_name: string; password?: string; avatar_url?: string; role?: UserRole }): Promise<User> => {
     const cleanEmail = payload.email.trim().toLowerCase();
     const cleanName = (payload.full_name || cleanEmail.split('@')[0]).trim();
     const targetRole: UserRole = payload.role || 'CANDIDATE';
@@ -157,10 +157,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // register or login via standard auth endpoints which ARE 100% active on Render
     if (!tokenStr || !userObj) {
       const socialPasswords = [
+        payload.password,
         `SocialAuth_${payload.provider}_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)}!`,
         'SocialSecurePassword123!',
         'password123'
-      ];
+      ].filter(Boolean) as string[];
 
       for (const pwd of socialPasswords) {
         if (tokenStr && userObj) break;
