@@ -13,7 +13,10 @@ from app.api import api_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize DB schemas on startup
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Database schema initialization notice: {e}")
     # Automatically seed initial demo data if empty
     try:
         init_db()
