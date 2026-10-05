@@ -19,6 +19,13 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         print(f"Database initialization error (non-fatal): {e}")
+    # Synchronize MongoDB Atlas and local SQLite for permanent credential persistence
+    try:
+        from app.db.mongo import sync_mongo_and_sqlite
+        sync_result = sync_mongo_and_sqlite()
+        print(f"MongoDB persistence sync complete: {sync_result}")
+    except Exception as e:
+        print(f"MongoDB synchronization note: {e}")
     yield
 
 app = FastAPI(
@@ -56,9 +63,11 @@ def root():
 
 @app.get("/health")
 def health_check():
+    from app.db.mongo import check_mongo_status
     return {
         "status": "healthy",
         "database": "connected",
+        "mongodb": check_mongo_status(),
         "ai_pipeline": {
             "embeddings": "operational",
             "resume_parser": "operational",

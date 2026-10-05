@@ -107,7 +107,49 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(user_in: UserLogin, db: Session = Depends(get_db)):
     """Authenticate with email and password."""
-    user = db.query(User).filter(User.email == user_in.email.lower().strip()).first()
+    email_clean = user_in.email.lower().strip()
+    user = db.query(User).filter(User.email == email_clean).first()
+    
+    # If not found in SQLite, check if user exists in MongoDB Atlas (e.g. after Render restart)
+    if not user:
+        try:
+            from app.db.mongo import get_user_from_mongo
+            m_user = get_user_from_mongo(email_clean)
+            if m_user and m_user.get("hashed_password"):
+                role_str = str(m_user.get("role", "CANDIDATE")).upper()
+                target_role = UserRole.RECRUITER if role_str == "RECRUITER" else UserRole.CANDIDATE
+                user = User(
+                    email=m_user["email"],
+                    hashed_password=m_user["hashed_password"],
+                    full_name=m_user.get("full_name") or email_clean.split("@")[0].capitalize(),
+                    role=target_role,
+                    is_active=m_user.get("is_active", True)
+                )
+                db.add(user)
+                db.flush()
+                if user.role == UserRole.CANDIDATE:
+                    cand = CandidateProfile(
+                        user_id=user.id,
+                        summary=f"Account restored for {user.full_name}.",
+                        education_level="Bachelor's Degree",
+                        years_of_experience=1.0,
+                        demographic_gender="Unspecified",
+                        demographic_age_group="25-34"
+                    )
+                    db.add(cand)
+                elif user.role == UserRole.RECRUITER:
+                    rec = RecruiterProfile(
+                        user_id=user.id,
+                        company_name="RecruitIQ Enterprise",
+                        department="Talent Acquisition",
+                        title="Talent Specialist"
+                    )
+                    db.add(rec)
+                db.commit()
+                db.refresh(user)
+        except Exception:
+            pass
+
     if not user or not verify_password(user_in.password, user.hashed_password):
         raise UnauthorizedException("Invalid email or password")
 
@@ -119,7 +161,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
         save_user_credential_to_mongo({
             "email": user.email,
             "full_name": user.full_name,
-            "role": user.role.value,
+            "role": user.role.value if hasattr(user.role, "value") else str(user.role),
             "auth_provider": "local",
             "is_active": True
         })

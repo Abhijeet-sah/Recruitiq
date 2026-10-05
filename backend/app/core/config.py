@@ -14,7 +14,10 @@ class Settings(BaseSettings):
     
     # Database: Supports SQLite by default for zero-config local run, or PostgreSQL
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./recruitiq.db")
-    MONGODB_URI: str = os.getenv("MONGODB_URI", "")
+    MONGODB_URI: str = os.getenv(
+        "MONGODB_URI",
+        "mongodb+srv://Abhijeet_sah:Abhijeet%401500@cluster0.jlzc7at.mongodb.net/recruitiq?retryWrites=true&w=majority"
+    )
     
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
