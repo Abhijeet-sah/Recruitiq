@@ -22,7 +22,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: MONGODB_URI
-        value: mongodb+srv://Abhijeet_sah:Abhijeet%401500@cluster0.jlzc7at.mongodb.net/recruitiq?retryWrites=true&w=majority
+        value: "mongodb+srv://Abhijeet_sah:Abhijeet%401500@cluster0.jlzc7at.mongodb.net/recruitiq?retryWrites=true&w=majority"
     autoDeploy: true
 
   # 2. React + Vite Frontend Web App

@@ -19,13 +19,19 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         print(f"Database initialization error (non-fatal): {e}")
-    # Synchronize MongoDB Atlas and local SQLite for permanent credential persistence
-    try:
-        from app.db.mongo import sync_mongo_and_sqlite
-        sync_result = sync_mongo_and_sqlite()
-        print(f"MongoDB persistence sync complete: {sync_result}")
-    except Exception as e:
-        print(f"MongoDB synchronization note: {e}")
+    
+    # Synchronize MongoDB Atlas and local database asynchronously in background
+    # Never block the server startup or liveness probe
+    def _bg_sync():
+        try:
+            from app.db.mongo import sync_mongo_and_sqlite
+            sync_result = sync_mongo_and_sqlite()
+            print(f"MongoDB persistence sync complete: {sync_result}")
+        except Exception as e:
+            print(f"MongoDB background sync notice: {e}")
+
+    import threading
+    threading.Thread(target=_bg_sync, daemon=True).start()
     yield
 
 app = FastAPI(
@@ -63,11 +69,10 @@ def root():
 
 @app.get("/health")
 def health_check():
-    from app.db.mongo import check_mongo_status
+    """Fast, non-blocking liveness probe for cloud platform health checks."""
     return {
         "status": "healthy",
         "database": "connected",
-        "mongodb": check_mongo_status(),
         "ai_pipeline": {
             "embeddings": "operational",
             "resume_parser": "operational",
@@ -75,6 +80,15 @@ def health_check():
             "fairness_auditor": "operational"
         }
     }
+
+@app.get("/health/mongo")
+def mongo_health_check():
+    """Dedicated diagnostic endpoint for MongoDB cloud connectivity."""
+    try:
+        from app.db.mongo import check_mongo_status
+        return check_mongo_status()
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
