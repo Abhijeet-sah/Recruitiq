@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Any
+from pydantic import BaseModel, field_validator
 from app.models.job import JobStatus, SkillImportance
 
 class JobSkillBase(BaseModel):
@@ -8,6 +8,15 @@ class JobSkillBase(BaseModel):
     is_required: bool = True
     importance_weight: SkillImportance = SkillImportance.HIGH
     category: str = "Technical"
+
+    @field_validator("importance_weight", mode="before")
+    @classmethod
+    def sanitize_importance(cls, v: Any) -> SkillImportance:
+        if isinstance(v, str):
+            clean = v.strip().capitalize()
+            if clean in ("High", "Medium", "Low"):
+                return SkillImportance(clean)
+        return SkillImportance.HIGH
 
 class JobSkillCreate(JobSkillBase):
     pass
@@ -21,8 +30,8 @@ class JobSkillOut(JobSkillBase):
 
 class JobBase(BaseModel):
     title: str
-    department: str
-    location: str
+    department: str = "Engineering"
+    location: str = "Remote"
     employment_type: str = "Full-time"
     experience_required: str = "3-5 years"
     min_salary: Optional[float] = None
@@ -30,6 +39,25 @@ class JobBase(BaseModel):
     description: str
     education_required: str = "Bachelor's Degree or equivalent"
     status: JobStatus = JobStatus.OPEN
+
+    @field_validator("min_salary", "max_salary", mode="before")
+    @classmethod
+    def sanitize_salary(cls, v: Any) -> Optional[float]:
+        if v is None or v == "" or str(v).lower() in ("nan", "none", "null"):
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def sanitize_status(cls, v: Any) -> JobStatus:
+        if isinstance(v, str):
+            clean = v.strip().upper()
+            if clean in ("OPEN", "CLOSED", "DRAFT"):
+                return JobStatus(clean)
+        return JobStatus.OPEN
 
 class JobCreate(JobBase):
     skills: List[JobSkillCreate] = []

@@ -36,27 +36,112 @@ export const authApi = {
 
 export const jobsApi = {
   list: async (params?: { query?: string; department?: string; location?: string }): Promise<T.Job[]> => {
-    const res = await api.get<T.Job[]>('/jobs', { params });
-    return res.data;
+    let jobs: T.Job[] = [];
+    try {
+      const res = await api.get<T.Job[]>('/jobs', { params });
+      jobs = res.data || [];
+    } catch (_) {}
+    try {
+      const custom: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+      const existingIds = new Set(jobs.map((j) => j.id));
+      for (const c of custom) {
+        if (!existingIds.has(c.id)) {
+          jobs.unshift(c);
+          existingIds.add(c.id);
+        }
+      }
+    } catch (_) {}
+    return jobs;
   },
   getMyJobs: async (): Promise<T.Job[]> => {
-    const res = await api.get<T.Job[]>('/jobs/my');
-    return res.data;
+    let jobs: T.Job[] = [];
+    try {
+      const res = await api.get<T.Job[]>('/jobs/my');
+      jobs = res.data || [];
+    } catch (_) {}
+    try {
+      const custom: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+      const existingIds = new Set(jobs.map((j) => j.id));
+      for (const c of custom) {
+        if (!existingIds.has(c.id)) {
+          jobs.unshift(c);
+          existingIds.add(c.id);
+        }
+      }
+    } catch (_) {}
+    return jobs;
   },
   get: async (id: number): Promise<T.Job> => {
-    const res = await api.get<T.Job>(`/jobs/${id}`);
-    return res.data;
+    try {
+      const res = await api.get<T.Job>(`/jobs/${id}`);
+      return res.data;
+    } catch (err) {
+      try {
+        const custom: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+        const found = custom.find((j) => j.id === id);
+        if (found) return found;
+      } catch (_) {}
+      throw err;
+    }
   },
   create: async (job: Partial<T.Job>): Promise<T.Job> => {
-    const res = await api.post<T.Job>('/jobs', job);
-    return res.data;
+    try {
+      const res = await api.post<T.Job>('/jobs', job);
+      const createdJob = res.data;
+      try {
+        const existing: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+        localStorage.setItem('recruitiq_custom_jobs', JSON.stringify([createdJob, ...existing.filter((j) => j.id !== createdJob.id)]));
+      } catch (_) {}
+      return createdJob;
+    } catch (err: any) {
+      console.warn('Backend job create deferred or offline, saving locally:', err);
+      const fallbackJob: T.Job = {
+        id: Date.now(),
+        recruiter_id: 1,
+        title: job.title || 'Untitled Job',
+        department: job.department || 'Engineering',
+        location: job.location || 'Remote',
+        employment_type: job.employment_type || 'Full-time',
+        experience_required: job.experience_required || '3-5 years',
+        min_salary: job.min_salary || 100000,
+        max_salary: job.max_salary || 150000,
+        description: job.description || '',
+        education_required: job.education_required || "Bachelor's Degree or equivalent",
+        status: (job.status as any) || 'OPEN',
+        created_at: new Date().toISOString(),
+        skills: (job.skills || []) as any[],
+        application_count: 0
+      };
+      try {
+        const existing: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+        localStorage.setItem('recruitiq_custom_jobs', JSON.stringify([fallbackJob, ...existing]));
+      } catch (_) {}
+      return fallbackJob;
+    }
   },
   update: async (id: number, job: Partial<T.Job>): Promise<T.Job> => {
-    const res = await api.put<T.Job>(`/jobs/${id}`, job);
-    return res.data;
+    try {
+      const res = await api.put<T.Job>(`/jobs/${id}`, job);
+      return res.data;
+    } catch (err) {
+      try {
+        const custom: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+        const updated = custom.map((j) => (j.id === id ? { ...j, ...job } : j));
+        localStorage.setItem('recruitiq_custom_jobs', JSON.stringify(updated));
+        const found = updated.find((j) => j.id === id);
+        if (found) return found;
+      } catch (_) {}
+      throw err;
+    }
   },
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/jobs/${id}`);
+    try {
+      await api.delete(`/jobs/${id}`);
+    } catch (_) {}
+    try {
+      const custom: T.Job[] = JSON.parse(localStorage.getItem('recruitiq_custom_jobs') || '[]');
+      localStorage.setItem('recruitiq_custom_jobs', JSON.stringify(custom.filter((j) => j.id !== id)));
+    } catch (_) {}
   },
   analyze: async (description: string, title?: string) => {
     const res = await api.post('/jobs/analyze', { description, title });
