@@ -34,3 +34,12 @@ class TokenPayload(BaseModel):
     sub: Optional[str] = None
     role: Optional[str] = None
     exp: Optional[int] = None
+
+class SocialLoginRequest(BaseModel):
+    provider: str  # "google" | "facebook"
+    email: EmailStr
+    full_name: str
+    provider_id: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: Optional[UserRole] = UserRole.CANDIDATE
+

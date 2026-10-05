@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, ArrowRight, Lock, Mail, User, Briefcase, UserCheck, AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
+import { SocialAuthModal } from '../../components/auth/SocialAuthModal';
 import clsx from 'clsx';
 
 export const Register: React.FC = () => {
@@ -17,6 +18,10 @@ export const Register: React.FC = () => {
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [socialModal, setSocialModal] = useState<{ open: boolean; provider: 'google' | 'facebook' }>({
+    open: false,
+    provider: 'google',
+  });
   const { register, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -173,6 +178,42 @@ export const Register: React.FC = () => {
                   Routes to {role === 'RECRUITER' ? '/recruiter/dashboard' : '/candidate/dashboard'}
                 </span>
               </div>
+
+              {/* 1-Click Social Sign-Up Options */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setSocialModal({ open: true, provider: 'google' })}
+                  className="w-full py-2.5 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2.5 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                  </svg>
+                  Sign up with Google
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSocialModal({ open: true, provider: 'facebook' })}
+                  className="w-full py-2.5 px-3.5 rounded-xl border border-[#1877F2] bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-semibold flex items-center justify-center gap-2.5 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  Sign up with Facebook
+                </button>
+              </div>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2.5 text-slate-400 font-semibold tracking-wider">Or register with email</span>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -257,6 +298,24 @@ export const Register: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <SocialAuthModal
+        isOpen={socialModal.open}
+        onClose={() => setSocialModal({ ...socialModal, open: false })}
+        provider={socialModal.provider}
+        mode="register"
+        role={role}
+        onSuccess={(targetRole) => {
+          setSocialModal({ ...socialModal, open: false });
+          if (targetRole === 'RECRUITER') {
+            navigate('/recruiter/dashboard', { replace: true });
+          } else if (targetRole === 'ADMIN') {
+            navigate('/admin/dashboard', { replace: true });
+          } else {
+            navigate('/candidate/dashboard', { replace: true });
+          }
+        }}
+      />
     </div>
   );
 };

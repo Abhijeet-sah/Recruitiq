@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
+  socialLogin: (payload: { provider: string; email: string; full_name: string; avatar_url?: string; role?: UserRole }) => Promise<User>;
   register: (payload: { email: string; password: string; full_name: string; role: UserRole }) => Promise<User>;
   logout: () => void;
 }
@@ -96,6 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (tokenStr) {
       localStorage.setItem('recruitiq_token', tokenStr);
       setToken(tokenStr);
+    } else {
+      throw new Error('Invalid email or password.');
     }
 
     let userObj: User | null = res?.user || (res as any)?.data?.user || null;
@@ -118,14 +121,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!userObj) {
-      userObj = {
-        id: 1,
-        email,
-        full_name: email.split('@')[0],
-        role: 'CANDIDATE',
-        is_active: true,
-        created_at: new Date().toISOString()
-      };
+      throw new Error('Authentication failed. Invalid email or password.');
+    }
+
+    localStorage.setItem('recruitiq_user', JSON.stringify(userObj));
+    setUser(userObj);
+    return userObj;
+  };
+
+  const socialLogin = async (payload: { provider: string; email: string; full_name: string; avatar_url?: string; role?: UserRole }): Promise<User> => {
+    const res = await authApi.socialLogin(payload);
+    const tokenStr = res?.access_token || (res as any)?.token;
+    if (tokenStr) {
+      localStorage.setItem('recruitiq_token', tokenStr);
+      setToken(tokenStr);
+    }
+
+    let userObj: User | null = res?.user || (res as any)?.data?.user || null;
+    if (!userObj && tokenStr) {
+      const jwtPayload = decodeJwtPayload(tokenStr);
+      if (jwtPayload && jwtPayload.role) {
+        userObj = {
+          id: jwtPayload.id || 1,
+          email: payload.email,
+          full_name: payload.full_name,
+          role: (jwtPayload.role || payload.role || 'CANDIDATE') as UserRole,
+          is_active: true,
+          created_at: new Date().toISOString()
+        };
+      }
+    }
+
+    if (!userObj) {
+      throw new Error('Social authentication could not complete. Please try again.');
     }
 
     localStorage.setItem('recruitiq_user', JSON.stringify(userObj));
@@ -188,6 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        socialLogin,
         register,
         logout,
       }}

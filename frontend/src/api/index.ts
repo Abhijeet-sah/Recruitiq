@@ -28,6 +28,10 @@ export const authApi = {
     const res = await api.post('/auth/reset-password', { token, new_password });
     return res.data;
   },
+  socialLogin: async (payload: { provider: string; email: string; full_name: string; provider_id?: string; avatar_url?: string; role?: T.UserRole }): Promise<T.AuthResponse> => {
+    const res = await api.post<T.AuthResponse>('/auth/social-login', payload);
+    return res.data;
+  },
 };
 
 export const jobsApi = {

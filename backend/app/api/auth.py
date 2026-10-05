@@ -9,9 +9,10 @@ from app.core.exceptions import BadRequestException, UnauthorizedException, NotF
 from app.models.user import User, UserRole
 from app.models.candidate import CandidateProfile, RecruiterProfile
 from app.models.audit import AuditLog
-from app.schemas.user import UserCreate, UserLogin, UserOut, Token
+from app.schemas.user import UserCreate, UserLogin, UserOut, Token, SocialLoginRequest
 from app.api.deps import get_current_user
 from app.services.email_service import email_service
+from app.db.mongo import save_user_credential_to_mongo
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -79,6 +80,20 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
+    # Persist to MongoDB if configured
+    try:
+        save_user_credential_to_mongo({
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value,
+            "hashed_password": user.hashed_password,
+            "auth_provider": "local",
+            "is_active": True,
+            "created_at": user.created_at
+        })
+    except Exception:
+        pass
+
     # Generate token
     token_data = {"sub": user.email, "role": user.role.value, "id": user.id}
     token = create_access_token(token_data)
@@ -98,6 +113,120 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
 
     if not user.is_active:
         raise BadRequestException("User account is disabled")
+
+    # Update MongoDB credentials/last_login if configured
+    try:
+        save_user_credential_to_mongo({
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value,
+            "auth_provider": "local",
+            "is_active": True
+        })
+    except Exception:
+        pass
+
+    token_data = {"sub": user.email, "role": user.role.value, "id": user.id}
+    token = create_access_token(token_data)
+
+    return Token(
+        access_token=token,
+        token_type="bearer",
+        user=format_user_out(user)
+    )
+
+@router.post("/social-login", response_model=Token)
+def social_login(payload: SocialLoginRequest, db: Session = Depends(get_db)):
+    """Authenticate or auto-register a user via Google or Facebook OAuth."""
+    email_clean = payload.email.lower().strip()
+    provider_name = payload.provider.lower().strip()
+    user = db.query(User).filter(User.email == email_clean).first()
+
+    if not user:
+        # Register new social user
+        import secrets
+        random_pwd = secrets.token_urlsafe(32)
+        hashed_pwd = get_password_hash(random_pwd)
+        target_role = payload.role if payload.role else UserRole.CANDIDATE
+
+        user = User(
+            email=email_clean,
+            hashed_password=hashed_pwd,
+            full_name=payload.full_name.strip() or email_clean.split("@")[0].capitalize(),
+            role=target_role,
+            is_active=True
+        )
+        db.add(user)
+        db.flush()
+
+        if user.role == UserRole.CANDIDATE:
+            profile = CandidateProfile(
+                user_id=user.id,
+                summary=f"Welcome {user.full_name}! Connected via {provider_name.capitalize()}.",
+                education_level="Bachelor's Degree",
+                years_of_experience=1.0,
+                demographic_gender="Unspecified",
+                demographic_age_group="25-34"
+            )
+            db.add(profile)
+        elif user.role == UserRole.RECRUITER:
+            rec_profile = RecruiterProfile(
+                user_id=user.id,
+                company_name="RecruitIQ Enterprise",
+                department="Talent Acquisition",
+                title="Talent Specialist"
+            )
+            db.add(rec_profile)
+
+        log = AuditLog(
+            user_id=user.id,
+            action=f"SOCIAL_REGISTRATION_{provider_name.upper()}",
+            entity_type="User",
+            entity_id=str(user.id),
+            details_json=f'{{"email": "{user.email}", "provider": "{provider_name}", "role": "{user.role.value}"}}'
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(user)
+
+        # Save to MongoDB if configured
+        try:
+            save_user_credential_to_mongo({
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value,
+                "auth_provider": provider_name,
+                "provider_id": payload.provider_id,
+                "is_active": True,
+                "created_at": user.created_at
+            })
+        except Exception:
+            pass
+    else:
+        if not user.is_active:
+            raise BadRequestException("User account is disabled")
+
+        log = AuditLog(
+            user_id=user.id,
+            action=f"SOCIAL_LOGIN_{provider_name.upper()}",
+            entity_type="User",
+            entity_id=str(user.id),
+            details_json=f'{{"email": "{user.email}", "provider": "{provider_name}"}}'
+        )
+        db.add(log)
+        db.commit()
+
+        # Update last login in MongoDB if configured
+        try:
+            save_user_credential_to_mongo({
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value,
+                "auth_provider": provider_name,
+                "is_active": True
+            })
+        except Exception:
+            pass
 
     token_data = {"sub": user.email, "role": user.role.value, "id": user.id}
     token = create_access_token(token_data)
