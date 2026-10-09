@@ -134,7 +134,35 @@ def start_assessment(
     job = app.job
     assessment = db.query(Assessment).filter(Assessment.job_id == job.id).first()
     if not assessment:
-        raise NotFoundException("No assessment configured for this job")
+        # Auto-provision technical assessment for this job using the question bank
+        assessment = Assessment(
+            job_id=job.id,
+            title=f"{job.title} Technical Competency Assessment",
+            description=f"Automated adaptive competency assessment evaluating candidate readiness for {job.title}.",
+            max_time_minutes=30,
+            passing_score=65.0,
+            is_active=True
+        )
+        db.add(assessment)
+        db.commit()
+        db.refresh(assessment)
+
+        # Populate with questions from the existing question bank
+        sample_questions = db.query(AssessmentQuestion).limit(25).all()
+        for sq in sample_questions:
+            new_q = AssessmentQuestion(
+                assessment_id=assessment.id,
+                question_text=sq.question_text,
+                question_type=sq.question_type,
+                options_json=sq.options_json,
+                correct_answer_json=sq.correct_answer_json,
+                explanation=sq.explanation,
+                skill_tested=sq.skill_tested,
+                difficulty=sq.difficulty
+            )
+            db.add(new_q)
+        db.commit()
+        db.refresh(assessment)
 
     # Check for active or prior attempt
     active_attempt = db.query(AssessmentAttempt).filter(

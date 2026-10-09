@@ -5,9 +5,9 @@ import {
   Layers, AlertTriangle, RefreshCw, BarChart2, TrendingUp,
   Code2, Play, RotateCcw, XCircle, Terminal, FileCode, Check, X,
   ChevronDown, ChevronUp, BookOpen, ListChecks, Lightbulb,
-  Maximize2, Minimize2, Sparkles, CheckCheck, PlayCircle
+  Maximize2, Minimize2, Sparkles, CheckCheck, PlayCircle, Briefcase
 } from 'lucide-react';
-import { assessmentsApi } from '../../api';
+import { assessmentsApi, candidatesApi } from '../../api';
 import { 
   AssessmentStartResponse, AssessmentQuestionClient, 
   DifficultyLevel, AnswerSubmitResponse, CodeRunResponse 
@@ -21,6 +21,60 @@ const SUPPORTED_LANGUAGES = [
   { id: 'typescript', label: 'TypeScript', ext: 'ts' },
   { id: 'java', label: 'Java', ext: 'java' },
   { id: 'cpp', label: 'C++', ext: 'cpp' },
+];
+
+const DEMO_BENCHMARK_QUESTIONS: AssessmentQuestionClient[] = [
+  {
+    id: 9991,
+    question_text: "What is the primary architectural advantage of using React Server Components (RSC) in modern full-stack web applications?",
+    question_type: "MCQ",
+    options: [
+      "They eliminate the need for any CSS styling in the browser",
+      "They reduce client bundle size by executing on the server and streaming zero-bundle-size rendered components",
+      "They replace PostgreSQL databases entirely with local JSON storage",
+      "They force all HTTP traffic to use raw TCP sockets instead of REST or GraphQL"
+    ],
+    skill_tested: "React",
+    difficulty: "Intermediate",
+  },
+  {
+    id: 9992,
+    question_text: "In Python, which built-in data structure provides average O(1) time complexity for lookup, insertion, and deletion operations?",
+    question_type: "MCQ",
+    options: [
+      "list",
+      "dict (hash map)",
+      "tuple",
+      "linked list"
+    ],
+    skill_tested: "Python",
+    difficulty: "Beginner",
+  },
+  {
+    id: 9993,
+    title: "Palindrome Checker",
+    description: "Write a function `is_palindrome(s: str) -> bool` that checks if a string is a palindrome, ignoring non-alphanumeric characters and case.",
+    question_text: "Implement a function that determines whether a given string is a palindrome after removing all non-alphanumeric characters and converting letters to lowercase.",
+    question_type: "CODE",
+    options: [],
+    skill_tested: "Python",
+    difficulty: "Intermediate",
+    starter_code: "def is_palindrome(s: str) -> bool:\n    # Write your solution here\n    cleaned = ''.join(c.lower() for c in s if c.isalnum())\n    return cleaned == cleaned[::-1]\n",
+    language: "python",
+    examples: [
+      { input: "s = 'A man, a plan, a canal: Panama'", output: "true", explanation: "'amanaplanacanalpanama' is a palindrome." },
+      { input: "s = 'race a car'", output: "false", explanation: "'raceacar' is not a palindrome." }
+    ],
+    test_cases: [
+      { input: "'A man, a plan, a canal: Panama'", expected: "True" },
+      { input: "'race a car'", expected: "False" },
+      { input: "' '", expected: "True" }
+    ],
+    starter_templates: {
+      python: "def is_palindrome(s: str) -> bool:\n    # Write your solution here\n    cleaned = ''.join(c.lower() for c in s if c.isalnum())\n    return cleaned == cleaned[::-1]\n",
+      javascript: "function isPalindrome(s) {\n    // Write your solution here\n    const cleaned = s.toLowerCase().replace(/[^a-z0-9]/g, '');\n    return cleaned === cleaned.split('').reverse().join('');\n}\n"
+    }
+  }
 ];
 
 export const AdaptiveAssessmentRunner: React.FC = () => {
@@ -67,10 +121,30 @@ export const AdaptiveAssessmentRunner: React.FC = () => {
       const timer = setTimeout(() => setLoading(false), 8000);
       return () => clearTimeout(timer);
     } else {
-      setError("Invalid application ID specified.");
-      setLoading(false);
+      // Check if user has an active application
+      candidatesApi.getMyApplications().then(apps => {
+        if (apps && apps.length > 0 && apps[0].id) {
+          navigate(`/candidate/assessment/${apps[0].id}`, { replace: true });
+        } else {
+          setError("NO_APPLICATION");
+          setLoading(false);
+        }
+      }).catch(() => {
+        setError("NO_APPLICATION");
+        setLoading(false);
+      });
     }
   }, [appId]);
+
+  const startDemoTest = () => {
+    setError(null);
+    setLoading(false);
+    setAttemptId(9999);
+    setTotalPlanned(3);
+    setQuestionIndex(1);
+    setDifficulty('Intermediate');
+    setupQuestionState(DEMO_BENCHMARK_QUESTIONS[0]);
+  };
 
   useEffect(() => {
     let interval: any = null;
@@ -201,6 +275,23 @@ export const AdaptiveAssessmentRunner: React.FC = () => {
     setIsConsoleOpen(true);
     setActiveConsoleTab('result');
 
+    if (attemptId === 9999) {
+      setTimeout(() => {
+        setCodeRunResult({
+          passed: true,
+          passed_count: 2,
+          total_count: 2,
+          all_passed: true,
+          test_results: [
+            { case_number: 1, passed: true, input_repr: "'A man, a plan, a canal: Panama'", expected_repr: "True", actual_repr: "True", execution_time_ms: 12 },
+            { case_number: 2, passed: true, input_repr: "'race a car'", expected_repr: "False", actual_repr: "False", execution_time_ms: 8 }
+          ]
+        });
+        setRunningCode(false);
+      }, 500);
+      return;
+    }
+
     try {
       const res = await assessmentsApi.runCode(currentQuestion.id, codeAnswer, selectedLanguage);
       setCodeRunResult(res);
@@ -235,6 +326,30 @@ export const AdaptiveAssessmentRunner: React.FC = () => {
     if (typeof answerPayload === 'string' && !answerPayload.trim()) return;
 
     setSubmittingAnswer(true);
+
+    if (attemptId === 9999) {
+      setTimeout(() => {
+        if (questionIndex < DEMO_BENCHMARK_QUESTIONS.length) {
+          const nextQ = DEMO_BENCHMARK_QUESTIONS[questionIndex];
+          setupQuestionState(nextQ);
+          setQuestionIndex(prev => prev + 1);
+          setDifficulty(nextQ.difficulty);
+        } else {
+          setIsCompleted(true);
+          setTestResult({
+            total_score: 90,
+            max_score: 100,
+            percentage: 90.0,
+            difficulty_reached: 'Advanced',
+            total_questions: 3,
+            correct_count: 3,
+            topic_performance: { 'React': 95, 'Python': 85 }
+          });
+        }
+        setSubmittingAnswer(false);
+      }, 400);
+      return;
+    }
 
     try {
       const res: AnswerSubmitResponse = await assessmentsApi.submitAnswer(
@@ -353,18 +468,60 @@ export const AdaptiveAssessmentRunner: React.FC = () => {
   // =========================================================================
   // ERROR SCREEN
   // =========================================================================
+  if (error === "NO_APPLICATION" || (!appId && !attemptId)) {
+    return (
+      <div className="max-w-xl mx-auto my-16 p-8 glass-panel border border-slate-800/80 rounded-3xl text-center shadow-2xl space-y-5">
+        <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto">
+          <Sparkles className="w-7 h-7" />
+        </div>
+        <div>
+          <span className="text-xs uppercase font-bold tracking-widest text-indigo-400 bg-indigo-950/60 px-3 py-1 rounded-full border border-indigo-700/40">
+            Role-Linked Adaptive Engine
+          </span>
+          <h2 className="text-xl font-bold text-white mt-3">No Active Job Application Found</h2>
+          <p className="text-xs text-slate-400 mt-2 leading-relaxed max-w-md mx-auto">
+            In RecruitIQ, adaptive competency assessments calibrate question difficulty dynamically based on the exact skills of the job you applied for. Apply to a position to unlock your custom evaluation, or test drive our interactive coding sandbox below.
+          </p>
+        </div>
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            to="/candidate/jobs"
+            className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Briefcase className="w-4 h-4" /> Explore Open Roles & Apply
+          </Link>
+          <button
+            type="button"
+            onClick={startDemoTest}
+            className="w-full sm:w-auto px-5 py-2.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Code2 className="w-4 h-4 text-emerald-400" /> Launch Demo Assessment
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (error || !currentQuestion) {
     return (
-      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-200 text-center shadow-xs space-y-4">
-        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-800">Assessment Unavailable</h2>
-        <p className="text-sm text-slate-500">
-          {error || 'Unable to start assessment. Please ensure you have permission to take the assessment for this application.'}
+      <div className="max-w-xl mx-auto my-16 p-8 glass-panel border border-slate-800/80 rounded-3xl text-center shadow-2xl space-y-4">
+        <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto" />
+        <h2 className="text-xl font-bold text-white">Assessment Unavailable</h2>
+        <p className="text-xs text-slate-400">
+          {error || 'Unable to start assessment. Please ensure you have an active application for this role.'}
         </p>
-        <div className="pt-2">
-          <Link to="/candidate/dashboard" className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors">
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link to="/candidate/dashboard" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-all">
             Return to Dashboard
           </Link>
+          <button
+            type="button"
+            onClick={startDemoTest}
+            className="px-5 py-2.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <Code2 className="w-4 h-4 text-emerald-400" /> Try Demo Assessment
+          </button>
         </div>
       </div>
     );
