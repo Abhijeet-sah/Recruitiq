@@ -80,7 +80,7 @@ export const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router>
-          <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+          <div className="min-h-screen flex flex-col bg-[#070B14] text-slate-100 selection:bg-indigo-500 selection:text-white">
             <Navbar />
             <main className="flex-1">
               <Routes>
